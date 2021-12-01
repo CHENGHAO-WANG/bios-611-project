@@ -1,0 +1,393 @@
+---
+title: "bios611project"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+## Set working directory to source file location
+library(rstudioapi)
+setwd(dirname(getActiveDocumentContext()$path))
+
+outpath <- "./output"
+dir.create(outpath, showWarnings = FALSE)
+```
+
+```{r,warning=FALSE,message=FALSE}
+library(dplyr)
+library(ggplot2)
+```
+
+```{r}
+data.train <- read.csv("../data/train.csv")
+data.test <- read.csv("../data/test.csv")
+
+data.train$train <- 1
+data.test$train <- 0
+
+data.all <- bind_rows(data.train, data.test)
+```
+
+```{r}
+head(data.all)
+```
+```{r}
+data.all$Survived <- factor(data.all$Survived)
+```
+
+
+#### data visualization
+```{r}
+data.train <- data.all %>% 
+  filter(train==1)
+```
+
+
+```{r}
+ggplot(data=data.train) +
+  geom_bar(mapping = aes(x=Pclass, fill=Survived)) +
+  #scale_fill_brewer(palette="Set1") +
+  ggtitle("Ticket class")+
+  coord_flip()
+```
+```{r}
+ggplot(data=data.train) +
+  geom_bar(mapping = aes(x=Sex, fill=Survived)) +
+  #scale_fill_brewer(palette="Set1") +
+  ggtitle("Gender")+
+  coord_flip()
+```
+```{r}
+ggplot(data=data.train) +
+  geom_bar(mapping = aes(x=Embarked, fill=Survived)) +
+  #scale_fill_brewer(palette="Set1") +
+  ggtitle("Port of embarkation", subtitle = "C = Cherbourg, Q = Queenstown, S = Southampton")+
+  coord_flip()
+```
+
+
+```{r}
+ggplot(data = data.train, aes(x=Survived, y=Age)) +
+  geom_violin(trim = FALSE) +
+  #geom_dotplot(binaxis='y', stackdir='center', dotsize=.1) +
+  #geom_jitter(shape=16, position=position_jitter(0.2)) +
+  coord_flip() +
+  ggtitle("Age")
+```
+```{r}
+ggplot(data = data.train, aes(x=Survived, y=log(Age))) +
+  geom_violin(trim = FALSE) +
+  #geom_dotplot(binaxis='y', stackdir='center', dotsize=.1) +
+  #geom_jitter(shape=16, position=position_jitter(0.2)) +
+  coord_flip() +
+  ggtitle("log(Age)")
+```
+
+
+```{r}
+ggplot(data = data.train, aes(x=Survived, y=SibSp)) +
+  geom_count() +
+  #geom_dotplot(binaxis='y', stackdir='center', dotsize=.1) +
+  #geom_jitter(shape=16, position=position_jitter(0.2)) +
+  coord_flip() +
+  ggtitle("Number of siblings / spouses aboard the Titanic")
+```
+```{r}
+ggplot(data = data.train, aes(x=Survived, y=Parch)) +
+  geom_count() +
+  #geom_dotplot(binaxis='y', stackdir='center', dotsize=.1) +
+  #geom_jitter(shape=16, position=position_jitter(0.2)) +
+  coord_flip() +
+  ggtitle("Number of parents / children aboard the Titanic")
+```
+
+```{r}
+ggplot(data = data.train, aes(x=Survived, y=Fare)) +
+  geom_violin(trim = FALSE) +
+  #geom_dotplot(binaxis='y', stackdir='center', dotsize=.1) +
+  #geom_jitter(shape=16, position=position_jitter(0.2)) +
+  coord_flip() +
+  ggtitle("Fare")
+```
+```{r}
+ggplot(data = data.train, aes(x=Survived, y=log(Fare))) +
+  geom_violin(trim = FALSE) +
+  #geom_dotplot(binaxis='y', stackdir='center', dotsize=.1) +
+  #geom_jitter(shape=16, position=position_jitter(0.2)) +
+  coord_flip() +
+  ggtitle("Log(Fare)")
+```
+
+
+####Feature engineering
+```{r}
+data.all <- data.all %>% 
+  mutate(family_size=SibSp+Parch) %>% 
+  mutate(Fare_mean=Fare/(family_size+1))
+```
+
+```{r}
+ggplot(data = data.all %>% filter(train==1), aes(x=Survived, y=Parch)) +
+  geom_count() +
+  #geom_dotplot(binaxis='y', stackdir='center', dotsize=.1) +
+  #geom_jitter(shape=16, position=position_jitter(0.2)) +
+  coord_flip() +
+  ggtitle("Family size")
+```
+```{r}
+ggplot(data = data.all %>% filter(train==1), aes(x=family_size, y=Fare, colour=Survived)) +
+  geom_point(alpha=0.5, position = "jitter") +
+  geom_smooth(method = loess) +
+  ggtitle("Fare vs family size")
+```
+
+
+```{r}
+ggplot(data = data.all %>% filter(train==1), aes(x=Survived, y=Fare_mean)) +
+  geom_violin(trim = FALSE) +
+  #geom_dotplot(binaxis='y', stackdir='center', dotsize=.1) +
+  #geom_jitter(shape=16, position=position_jitter(0.2)) +
+  coord_flip() +
+  ggtitle("Fare_mean")
+```
+
+
+```{r}
+ggplot(data = data.all %>% filter(train==1), aes(x=Survived, y=log(Fare_mean))) +
+  geom_violin(trim = FALSE) +
+  #geom_dotplot(binaxis='y', stackdir='center', dotsize=.1) +
+  #geom_jitter(shape=16, position=position_jitter(0.2)) +
+  coord_flip() +
+  ggtitle("Log(Fare_mean)")
+```
+
+```{r}
+# Cabin -> Deck
+data.all <- data.all %>% 
+  mutate(Deck = substr(Cabin,1,1))
+data.all$Deck[data.all$Deck==""] <- "unknown"
+```
+
+```{r}
+ggplot(data=data.all %>% filter(train==1)) +
+  geom_bar(mapping = aes(x=Deck, fill=Survived)) +
+  #scale_fill_brewer(palette="Set1") +
+  ggtitle("Deck")+
+  coord_flip()
+```
+```{r}
+data.all$Deck.known <- ifelse(data.all$Deck=="unknown", "unknown", "known")
+```
+
+```{r}
+ggplot(data=data.all %>% filter(train==1)) +
+  geom_bar(mapping = aes(x=Deck.known, fill=Survived)) +
+  #scale_fill_brewer(palette="Set1") +
+  ggtitle("Deck")+
+  coord_flip()
+```
+
+
+```{r}
+# Missing value
+data.all2 <- data.all
+
+data.all2[data.all2==""] <- NA
+
+colSums(is.na(data.all2 %>% filter(train==1)))
+colSums(is.na(data.all2 %>% filter(train==0)))
+```
+```{r}
+# are missing values at random?
+data.all2$missing.no <- rowSums(is.na(data.all2))
+data.all2$missing <- ifelse(data.all2$missing.no>0, T, F)
+```
+
+```{r}
+ggplot(data=data.all2 %>% filter(train==1)) +
+  geom_bar(mapping = aes(x=missing, fill=Survived)) +
+  #scale_fill_brewer(palette="Set1") +
+  ggtitle("Missing values")+
+  coord_flip()
+```
+```{r}
+ggplot(data = data.all2 %>% filter(train==1), aes(y=missing.no, x=Survived)) +
+  geom_count() +
+  coord_flip() +
+  ggtitle("Number of missing values per passenger")
+```
+
+```{r}
+#missing value imputation
+data.all2$Age <- median(data.all2$Age, na.rm = TRUE)
+
+data.all2$Fare <- median(data.all2$Fare, na.rm = TRUE)
+data.all2 <- data.all2 %>% 
+  mutate(Fare_mean=Fare/(family_size+1))
+
+data.all2$Embarked <- ifelse(is.na(data.all2$Embarked),"S",data.all2$Embarked)
+```
+
+
+```{r}
+#Name
+data.all2 <- data.all2 %>% 
+  mutate(title=gsub(".*[,]([^.]+)[.].*", "\\1", Name)) %>% 
+  mutate(title=gsub(" ", "", title, fixed = TRUE))
+
+f <- function(title, sex) {
+  if (title %in% c('Don', 'Major', 'Capt', 'Jonkheer', 'Rev', 'Col')) {
+    return("Mr")
+  } else if (title %in% c('Countess', 'Mme')) {
+    return("Mrs")
+  } else if (title %in% c('Mlle', 'Ms')) {
+    return("Miss")
+  } else if (title == "Dr" ) {
+    if (sex=="male") {
+      return("Mr")
+    } else {
+      return("Mrs")
+    }
+  } else {
+    return(title)
+  }
+}
+
+
+
+data.all2$title_simplify <- mapply(f, data.all2$title, data.all2$Sex)
+
+```
+
+```{r}
+ggplot(data=data.all2 %>% filter(train==1)) +
+  geom_bar(mapping = aes(x=title_simplify, fill=Survived)) +
+  #scale_fill_brewer(palette="Set1") +
+  ggtitle("Title")+
+  coord_flip()
+```
+
+####Model training
+```{r}
+library(caret)
+```
+
+
+```{r}
+names(data.all2)
+```
+```{r}
+data.all2$Pclass <- factor(data.all2$Pclass)
+```
+
+
+```{r}
+features <- c("train","Survived","Pclass","Sex","Age","SibSp","Parch","Fare","Embarked","family_size","Fare_mean",
+             "Deck.known","missing","title_simplify")
+features2 <- c("train","Survived","Pclass","Sex","Age","SibSp","Parch","Fare","Embarked","family_size","Fare_mean","missing")
+```
+
+
+```{r}
+#logisitc regression
+
+mod <- glm(Survived ~ ., data = data.all2[,features] %>% filter(train==1) %>% select(-train), family = "binomial")
+```
+```{r}
+mod <- glm(Survived ~ ., data = data.all2[,features2] %>% filter(train==1) %>% select(-train), family = "binomial")
+```
+
+```{r}
+train.prob <- predict.glm(mod, data.all2 %>% filter(train==1), type = "response")
+train.pred <- ifelse(train.prob>0.5, 1, 0)
+train.pred <- factor(train.pred)
+confusionMatrix(data.train$Survived, train.pred)
+```
+```{r}
+test.prob <- predict.glm(mod, data.all2 %>% filter(train==0), type = "response")
+test.pred <- ifelse(test.prob>0.5, 1, 0)
+
+test.ids <- data.all2 %>% filter(train==0) 
+test.ids <- test.ids$PassengerId
+output <- data.frame(PassengerId=test.ids,
+                     Survived=test.pred)
+write.csv(output,file.path(outpath,"lr.csv"), row.names = FALSE)
+```
+
+```{r}
+data.all3 <- data.all2
+data.all3$Survived <- ifelse(data.all2$Survived==1,"yes","no")
+#glmnet
+set.seed(1)
+fitControl <- trainControl(## 3-fold CV
+                           method = "cv",
+                           number = 3,
+                           ## class probabilities are needed to score model
+                           classProbs = TRUE,
+                           summaryFunction = twoClassSummary)
+Grid <- expand.grid(alpha = c(0,0.5,1), lambda = 10^seq(-3,2, length = 25))
+glmnet.tune <- train(Survived ~ ., data=data.all3[,features2] %>% filter(train==1) %>% select(-train),
+                     method = "glmnet", fimaly = "binomial",
+                 trControl = fitControl, tuneGrid = Grid,
+                 metric="ROC")
+```
+
+```{r}
+plot(glmnet.tune)
+```
+```{r}
+tuning.results <- glmnet.tune$results %>% arrange(desc(lambda))
+# choose the most regularized model such that error is within one standard error of the minimum.
+set.seed(1)
+whichTwoPct <- oneSE(tuning.results, metric = "ROC", num = 200, maximize = TRUE)
+tuning.results[whichTwoPct, 1:5]
+```
+```{r}
+set.seed(1)
+library(glmnet)
+mod <- glmnetUtils::glmnet(Survived ~ ., data=data.all3[,features2] %>% filter(train==1) %>% select(-train), alpha = 0, lambda = 0.1211528, family = "binomial")
+
+```
+```{r}
+train.prob <- predict(mod, data.all2 %>% filter(train==1), type = "response")
+train.pred <- ifelse(train.prob>0.5, 1, 0)
+train.pred <- factor(train.pred)
+confusionMatrix(data.train$Survived, train.pred)
+```
+```{r}
+test.prob <- predict(mod, data.all2 %>% filter(train==0), type = "response")
+test.pred <- ifelse(test.prob>0.5, 1, 0)
+
+test.pred <- c(test.pred)
+
+output <- data.frame(PassengerId=test.ids,
+                     Survived=test.pred)
+write.csv(output,file.path(outpath,"rlr.csv"), row.names = FALSE)
+```
+
+```{r}
+#random forest
+library(randomForest)
+```
+```{r}
+set.seed(1)
+data.tr <- data.all3[,features2] %>% filter(train==1) %>% select(-train)
+mod <- randomForest(y=factor(data.tr$Survived),x=data.tr %>% select(-Survived), ntree=1000)
+```
+
+```{r}
+train.pred <- predict(mod, data.tr, type = "response")
+confusionMatrix(factor(data.tr$Survived), train.pred)
+```
+
+```{r}
+test.pred <- predict(mod, data.all3[,features2] %>% filter(train==0) %>% select(-train,-Survived), type = "response")
+test.pred <- ifelse(test.pred=="yes",1,0)
+output <- data.frame(PassengerId=test.ids,
+                     Survived=test.pred)
+write.csv(output,file.path(outpath,"rf.csv"), row.names = FALSE)
+```
+
